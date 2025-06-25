@@ -114,9 +114,24 @@
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script>
-    const map = L.map('map', { zoomControl: false }).setView([22.5726, 88.3639], 10);
+    const map = L.map('map', { zoomControl: false }).setView([22.4834, 88.3811], 13);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+	
+		const smallIcon = L.icon({
+	  iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+	  iconSize: [2, 8],
+	  iconAnchor: [4, 8],
+	  popupAnchor: [0, -8]
+	});
+
+	const normalIcon = L.icon({
+	  iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+	  iconSize: [32, 32],
+	  iconAnchor: [16, 32],
+	  popupAnchor: [0, -32]
+	});
+
 
     const routeFilter = document.getElementById("routeFilter");
     const salesFilter = document.getElementById("salesFilter");
@@ -139,7 +154,8 @@
         const routeId = (row["Route ID"] || "").trim();
         const salesperson = (row["Sales Person"] || "").trim();
 
-        const marker = L.marker([lat, lng]);
+        const marker = L.marker([lat, lng], { icon: smallIcon });
+
         marker.bindPopup(`
           <b>${shopName}</b><br>
           Code: ${shopCode}<br>
@@ -206,11 +222,17 @@
       matches.forEach(marker => {
         const item = document.createElement("div");
         item.textContent = marker.shopDisplay;
-        item.onclick = () => {
-          map.setView(marker.getLatLng(), 16);
-          marker.openPopup();
-          autocomplete.innerHTML = "";
-        };
+			   item.onclick = () => {
+		  // Reset all icons to small
+		  allMarkers.forEach(m => m.setIcon(smallIcon));
+
+		  // Highlight the selected shop with larger icon
+		  marker.setIcon(normalIcon);
+		  map.setView(marker.getLatLng(), 16);
+		  marker.openPopup();
+		  autocomplete.innerHTML = "";
+		};
+
         autocomplete.appendChild(item);
       });
 
@@ -223,13 +245,27 @@
       });
     }
 
-    function resetFilters() {
-      routeFilter.value = "";
-      salesFilter.value = "";
-      shopSearch.value = "";
-      autocomplete.innerHTML = "";
-      applyFilters();
-    }
+  function resetFilters() {
+  routeFilter.value = "";
+  salesFilter.value = "";
+  shopSearch.value = "";
+  autocomplete.innerHTML = "";
+
+  applyFilters();
+
+  // Set all icons back to small
+  allMarkers.forEach(marker => marker.setIcon(smallIcon));
+
+  // Close any popup
+  map.closePopup();
+
+  // Zoom back out to default view
+  const allLatLngs = allMarkers.map(marker => marker.getLatLng());
+  const bounds = L.latLngBounds(allLatLngs);
+  map.fitBounds(bounds, { padding: [30, 30] });
+}
+
+
 
     routeFilter.addEventListener("change", applyFilters);
     salesFilter.addEventListener("change", applyFilters);

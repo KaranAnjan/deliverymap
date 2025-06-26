@@ -90,6 +90,9 @@
       <input id="shopSearch" placeholder="🔍 Search shop name" autocomplete="off" />
       <div id="autocomplete" class="autocomplete-suggestions"></div>
       <button onclick="resetFilters()">Reset Filters</button>
+	  
+	  <button onclick="openMultiStopRoute()">🗺️ Multi-Stop Navigate</button>
+
     </div>
   </header>
 
@@ -197,6 +200,30 @@
         map.fitBounds(bounds, { padding: [30, 30] });
       }
     }
+function openMultiStopRoute() {
+  const selectedMarkers = allMarkers.filter(marker =>
+    map.hasLayer(marker) && marker.getIcon() === normalIcon
+  );
+
+  if (selectedMarkers.length === 0) {
+    alert("Please select at least one shop first.");
+    return;
+  }
+
+  const coords = selectedMarkers.map(m => `${m.getLatLng().lat},${m.getLatLng().lng}`);
+
+  const origin = 'My+Location';
+  const destination = coords.pop(); // Last shop
+  const waypoints = coords.join('|'); // Remaining shops
+
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+  if (waypoints) {
+    url += `&waypoints=${waypoints}`;
+  }
+
+  window.open(url, '_blank');
+}
+
 
     function resetFilters() {
       selectedNames = [];

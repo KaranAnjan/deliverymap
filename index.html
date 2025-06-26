@@ -5,38 +5,43 @@
   <title>Delivery Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: Arial, sans-serif;
-    }
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
+  <!-- Leaflet Routing Machine -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.min.js"></script>
+
+  <!-- PapaParse CSV Parser -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <!-- Tagify -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@yaireo/tagify/dist/tagify.css">
+  <script src="https://cdn.jsdelivr.net/npm/@yaireo/tagify"></script>
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
+    #map { height: 100%; width: 100%; position: absolute; top: 180px; }
     header {
-      background: #00A651;
+      position: fixed;
+      top: 0;
+      width: 100%;
+      background-color: #00A651;
       color: white;
       padding: 10px;
       text-align: center;
-      position: fixed;
-      width: 100%;
       z-index: 1000;
     }
-
-    header h1 {
-      margin: 0;
-      font-size: 20px;
-    }
-
+    header h1 { margin: 0; font-size: 20px; }
     .search-container {
-      margin-top: 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
+      margin-top: 5px;
+      z-index: 1001;
     }
-
-    .search-container input, button {
+    .search-container input, .search-container select, .search-container button {
       margin: 5px;
       padding: 8px;
       font-size: 14px;
@@ -45,207 +50,177 @@
       border-radius: 5px;
       border: none;
     }
-
-    #map {
-      position: absolute;
-      top: 140px;
-      bottom: 0;
-      width: 100%;
-    }
-
-    .autocomplete-suggestions {
-      background: white;
-      color: black; /* ✅ visible text */
-      border: 1px solid #ccc;
-      position: absolute;
-      max-height: 150px;
-      overflow-y: auto;
-      width: 90%;
-      max-width: 300px;
-      top: 130px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1001;
-      border-radius: 5px;
-    }
-
-    .autocomplete-suggestions div {
-      padding: 8px;
-      cursor: pointer;
-    }
-
-    .autocomplete-suggestions div:hover {
-      background: #f0f0f0;
-    }
-
-    .leaflet-bottom.leaflet-right {
-      margin-bottom: 60px !important;
-    }
+    .leaflet-bottom.leaflet-right { margin-bottom: 60px !important; }
   </style>
 </head>
 <body>
   <header>
     <h1>Delivery Map</h1>
     <div class="search-container">
-      <input id="shopSearch" placeholder="🔍 Search shop name" autocomplete="off" />
-      <div id="autocomplete" class="autocomplete-suggestions"></div>
+      <input id="shopSearch" placeholder="🔍 Search multiple shops" autofocus>
+      <select id="routeFilter">
+        <option value="">📍 All Routes</option>
+      </select>
+      <select id="salesFilter">
+        <option value="">👤 All Salespersons</option>
+      </select>
       <button onclick="resetFilters()">Reset Filters</button>
-	  
-	  <button onclick="openMultiStopRoute()">🗺️ Multi-Stop Navigate</button>
-
+      <button onclick="openMultiStopRoute()">🧭 Multi-Stop Navigate</button>
     </div>
   </header>
-
   <div id="map"></div>
-
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <script>
     const map = L.map('map', { zoomControl: false }).setView([22.5726, 88.3639], 10);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    const shopInput = document.getElementById("shopSearch");
-    const autocomplete = document.getElementById("autocomplete");
+    const routeFilter = document.getElementById("routeFilter");
+    const salesFilter = document.getElementById("salesFilter");
+    const shopSearch = document.getElementById("shopSearch");
 
     let allMarkers = [];
-    let markerMap = {};
-    let selectedNames = [];
-
-    const normalIcon = L.icon({
-      iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-      iconSize: [32, 32],
-      iconAnchor: [16, 32],
-      popupAnchor: [0, -32]
-    });
-
-    const smallIcon = L.icon({
-      iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-      iconSize: [10, 10],
-      iconAnchor: [5, 10],
-      popupAnchor: [0, -10]
-    });
+    let allData = [];
+    let shopTagify;
+    let shopNameToMarkerMap = new Map();
 
     function showShops(data) {
-      const shopDisplayList = [];
+      allData = data;
+      const routeMap = new Map();
+      const shopList = [];
 
       data.forEach(row => {
         const lat = parseFloat(row["Latitude"]);
         const lng = parseFloat(row["Longitude"]);
         if (!lat || !lng) return;
 
+        const route = (row["Route ID"] || "").trim();
+        const sales = (row["Sales Person"] || "").trim();
         const shopName = (row["Shop Name"] || "").trim();
         const shopCode = (row["Shop Code"] || "").trim();
-        const display = `${shopName} (${shopCode})`;
 
-        const marker = L.marker([lat, lng], { icon: smallIcon }).bindPopup(`
-          <b>${shopName}</b><br>
-          Code: ${shopCode}<br>
-          Sales: ${row["Sales Person"]}<br>
-          Route: ${row["Route ID"]}<br>
-          Phone: <a href="tel:${row["Mobile 1"]}">${row["Mobile 1"]}</a><br>
-          <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank">🧭 Navigate on Map</a>
-        `);
-        marker.key = shopName.toLowerCase();  // Just the name
+        const fullName = `${shopName} (${shopCode})`;
+        const marker = L.marker([lat, lng]);
+        marker.bindPopup(`<b>${shopName}</b><br>Code: ${shopCode}<br>Route: ${route}<br>Salesperson: ${sales}<br>
+        <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank">🧭 Navigate</a>`);
+
+        marker.route = route;
+        marker.sales = sales;
+        marker.shop = fullName;
+        marker.addTo(map);
         allMarkers.push(marker);
-        markerMap[marker.key] = marker;
-        marker.addTo(map);
 
-        shopDisplayList.push(display); // For suggestions
+        shopList.push(fullName);
+        if (!shopNameToMarkerMap.has(fullName)) shopNameToMarkerMap.set(fullName, []);
+        shopNameToMarkerMap.get(fullName).push(marker);
+
+        if (!routeMap.has(route)) routeMap.set(route, new Set());
+        routeMap.get(route).add(sales);
       });
 
-      // Autocomplete logic
-      shopInput.addEventListener("input", () => {
-        const term = shopInput.value.trim().toLowerCase().split(',').pop().trim();
-        autocomplete.innerHTML = "";
-        if (!term) return;
+      // Populate route filter
+      routeMap.forEach((_, route) => {
+        const option = document.createElement("option");
+        option.value = route;
+        option.textContent = route;
+        routeFilter.appendChild(option);
+      });
 
-        const matched = shopDisplayList.filter(entry => entry.toLowerCase().includes(term));
-        matched.forEach(fullDisplay => {
-          const div = document.createElement("div");
-          div.textContent = fullDisplay;
-          div.onclick = () => {
-            const shopNameOnly = fullDisplay.split('(')[0].trim().toLowerCase();
-            addShopToSelection(shopNameOnly, fullDisplay);
-          };
-          autocomplete.appendChild(div);
+      // Set dependent sales filter on route change
+      routeFilter.addEventListener("change", () => {
+        const selectedRoute = routeFilter.value;
+        const salesSet = routeMap.get(selectedRoute) || new Set();
+
+        salesFilter.innerHTML = `<option value="">👤 All Salespersons</option>`;
+        [...salesSet].sort().forEach(s => {
+          const opt = document.createElement("option");
+          opt.value = s;
+          opt.textContent = s;
+          salesFilter.appendChild(opt);
         });
+
+        applyFilters();
+      });
+
+      shopTagify = new Tagify(shopSearch, {
+        whitelist: shopList,
+        enforceWhitelist: true,
+        dropdown: {
+          enabled: 1,
+          maxItems: 10,
+          position: "text",
+          highlightFirst: true
+        }
+      });
+
+      shopTagify.on("change", () => {
+        const selectedShops = shopTagify.value.map(tag => tag.value);
+        let visibleMarkers = [];
+        allMarkers.forEach(marker => map.removeLayer(marker));
+
+        if (selectedShops.length === 0) {
+          applyFilters();
+          return;
+        }
+
+        selectedShops.forEach(name => {
+          const matchedMarkers = shopNameToMarkerMap.get(name);
+          if (matchedMarkers) {
+            matchedMarkers.forEach(marker => {
+              marker.addTo(map);
+              visibleMarkers.push(marker);
+            });
+          }
+        });
+
+        if (visibleMarkers.length > 0) {
+          const bounds = L.latLngBounds(visibleMarkers.map(m => m.getLatLng()));
+          map.fitBounds(bounds, { padding: [30, 30] });
+        }
       });
     }
 
-    function addShopToSelection(shopKey, displayValue) {
-      if (!selectedNames.includes(shopKey)) {
-        selectedNames.push(shopKey);
-      }
+    function applyFilters() {
+      const route = routeFilter.value.trim();
+      const sales = salesFilter.value.trim();
 
-      // Show only names (no codes) in input
-      shopInput.value = selectedNames.map(n => capitalize(n)).join(", ") + ", ";
-      autocomplete.innerHTML = "";
-
-      // Update markers
       allMarkers.forEach(marker => {
-        map.removeLayer(marker);
-        marker.setIcon(smallIcon);
+        const show = (!route || marker.route === route) && (!sales || marker.sales === sales);
+        if (show) {
+          map.addLayer(marker);
+        } else {
+          map.removeLayer(marker);
+        }
       });
-
-      const visible = selectedNames.map(k => markerMap[k]).filter(Boolean);
-      visible.forEach(marker => {
-        marker.setIcon(normalIcon);
-        marker.addTo(map);
-      });
-
-      if (visible.length > 0) {
-        const bounds = L.latLngBounds(visible.map(m => m.getLatLng()));
-        map.fitBounds(bounds, { padding: [30, 30] });
-      }
     }
-function openMultiStopRoute() {
-  const selectedMarkers = allMarkers.filter(marker =>
-    map.hasLayer(marker) && marker.getIcon() === normalIcon
-  );
-
-  if (selectedMarkers.length === 0) {
-    alert("Please select at least one shop first.");
-    return;
-  }
-
-  const coords = selectedMarkers.map(m => `${m.getLatLng().lat},${m.getLatLng().lng}`);
-
-  const origin = 'My+Location';
-  const destination = coords.pop(); // Last shop
-  const waypoints = coords.join('|'); // Remaining shops
-
-  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
-  if (waypoints) {
-    url += `&waypoints=${waypoints}`;
-  }
-
-  window.open(url, '_blank');
-}
-
 
     function resetFilters() {
-      selectedNames = [];
-      shopInput.value = "";
-      autocomplete.innerHTML = "";
-
-      allMarkers.forEach(marker => {
-        marker.setIcon(smallIcon);
-        marker.addTo(map);
-      });
-// Close any popup
-  map.closePopup();
-  
-      const bounds = L.latLngBounds(allMarkers.map(m => m.getLatLng()));
-      map.fitBounds(bounds, { padding: [30, 30] });
+      routeFilter.value = "";
+      salesFilter.innerHTML = '<option value="">👤 All Salespersons</option>';
+      if (shopTagify) shopTagify.removeAllTags();
+      allMarkers.forEach(marker => marker.addTo(map));
+      map.setView([22.5726, 88.3639], 10);
     }
 
-    function capitalize(text) {
-      return text.replace(/\b\w/g, c => c.toUpperCase());
+    function openMultiStopRoute() {
+      const selectedMarkers = allMarkers.filter(m => map.hasLayer(m));
+      if (selectedMarkers.length === 0) {
+        alert("Please select at least one shop by filter or search.");
+        return;
+      }
+      const coords = selectedMarkers.map(m => `${m.getLatLng().lat},${m.getLatLng().lng}`);
+      const origin = 'My+Location';
+      const destination = coords.pop();
+      const waypoints = coords.join('|');
+      let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+      if (waypoints) url += `&waypoints=${waypoints}`;
+      window.open(url, '_blank');
     }
+
+    salesFilter.addEventListener("change", applyFilters);
 
     const publicCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQeQNGO8MaX3SJmuO3vS5GsxzOvFysgW6N-wKGNZyo970vw4bBIYJkUyb3Emgy0WMGnhzGx7Dr2DunX/pub?gid=0&single=true&output=csv';
+
     Papa.parse(publicCSV, {
       download: true,
       header: true,

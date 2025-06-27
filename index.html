@@ -49,6 +49,25 @@
       max-width: 300px;
       border-radius: 5px;
       border: none;
+      box-sizing: border-box;
+    }
+    input:focus, select:focus, button:focus {
+      outline: none;
+      box-shadow: 0 0 2px 2px rgba(0, 166, 81, 0.5);
+    }
+    .tagify {
+      background-color: white;
+      border: 1px solid #ccc;
+    }
+    .tagify__input::before {
+      content: attr(data-placeholder);
+      color: #aaa;
+    }
+    .tagify__input {
+      color: black;
+    }
+    .tagify__dropdown {
+      color: black;
     }
     .leaflet-bottom.leaflet-right { margin-bottom: 60px !important; }
   </style>
@@ -57,7 +76,7 @@
   <header>
     <h1>Delivery Map</h1>
     <div class="search-container">
-      <input id="shopSearch" placeholder="🔍 Search multiple shops" autofocus>
+      <input id="shopSearch" placeholder="🔍 Search multiple shops" autofocus data-placeholder="🔍 Search multiple shops">
       <select id="routeFilter">
         <option value="">📍 All Routes</option>
       </select>
@@ -118,7 +137,6 @@
         routeMap.get(route).add(sales);
       });
 
-      // Populate route filter
       routeMap.forEach((_, route) => {
         const option = document.createElement("option");
         option.value = route;
@@ -126,7 +144,6 @@
         routeFilter.appendChild(option);
       });
 
-      // Set dependent sales filter on route change
       routeFilter.addEventListener("change", () => {
         const selectedRoute = routeFilter.value;
         const salesSet = routeMap.get(selectedRoute) || new Set();
@@ -140,6 +157,13 @@
         });
 
         applyFilters();
+
+        // Zoom to filtered markers
+        const visibleMarkers = allMarkers.filter(m => m.route === selectedRoute);
+        if (visibleMarkers.length > 0) {
+          const bounds = L.latLngBounds(visibleMarkers.map(m => m.getLatLng()));
+          map.fitBounds(bounds, { padding: [30, 30] });
+        }
       });
 
       shopTagify = new Tagify(shopSearch, {
@@ -148,9 +172,11 @@
         dropdown: {
           enabled: 1,
           maxItems: 10,
-          position: "text",
-          highlightFirst: true
-        }
+          position: "all",
+          highlightFirst: true,
+          closeOnSelect: false,
+        },
+        originalInputValueFormat: valuesArr => valuesArr.map(v => v.value.split(' (')[0]).join(',')
       });
 
       shopTagify.on("change", () => {
@@ -164,7 +190,8 @@
         }
 
         selectedShops.forEach(name => {
-          const matchedMarkers = shopNameToMarkerMap.get(name);
+          const fullEntry = shopList.find(e => e.startsWith(name));
+          const matchedMarkers = shopNameToMarkerMap.get(fullEntry);
           if (matchedMarkers) {
             matchedMarkers.forEach(marker => {
               marker.addTo(map);

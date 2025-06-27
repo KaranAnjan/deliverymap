@@ -126,7 +126,7 @@
         marker.route = route;
         marker.sales = sales;
         marker.shop = fullName;
-        marker.addTo(map);
+        // do not add marker to map yet
         allMarkers.push(marker);
 
         shopList.push(fullName);
@@ -156,14 +156,7 @@
           salesFilter.appendChild(opt);
         });
 
-        applyFilters();
-
-        // Zoom to filtered markers
-        const visibleMarkers = allMarkers.filter(m => m.route === selectedRoute);
-        if (visibleMarkers.length > 0) {
-          const bounds = L.latLngBounds(visibleMarkers.map(m => m.getLatLng()));
-          map.fitBounds(bounds, { padding: [30, 30] });
-        }
+        applyFilters(true);
       });
 
       shopTagify = new Tagify(shopSearch, {
@@ -185,7 +178,6 @@
         allMarkers.forEach(marker => map.removeLayer(marker));
 
         if (selectedShops.length === 0) {
-          applyFilters();
           return;
         }
 
@@ -207,25 +199,32 @@
       });
     }
 
-    function applyFilters() {
+    function applyFilters(shouldZoom = false) {
       const route = routeFilter.value.trim();
       const sales = salesFilter.value.trim();
+      let visibleMarkers = [];
 
       allMarkers.forEach(marker => {
         const show = (!route || marker.route === route) && (!sales || marker.sales === sales);
         if (show) {
-          map.addLayer(marker);
+          marker.addTo(map);
+          visibleMarkers.push(marker);
         } else {
           map.removeLayer(marker);
         }
       });
+
+      if (shouldZoom && visibleMarkers.length > 0) {
+        const bounds = L.latLngBounds(visibleMarkers.map(m => m.getLatLng()));
+        map.fitBounds(bounds, { padding: [30, 30] });
+      }
     }
 
     function resetFilters() {
       routeFilter.value = "";
       salesFilter.innerHTML = '<option value="">👤 All Salespersons</option>';
       if (shopTagify) shopTagify.removeAllTags();
-      allMarkers.forEach(marker => marker.addTo(map));
+      allMarkers.forEach(marker => map.removeLayer(marker));
       map.setView([22.5726, 88.3639], 10);
     }
 
@@ -244,7 +243,7 @@
       window.open(url, '_blank');
     }
 
-    salesFilter.addEventListener("change", applyFilters);
+    salesFilter.addEventListener("change", () => applyFilters(true));
 
     const publicCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQeQNGO8MaX3SJmuO3vS5GsxzOvFysgW6N-wKGNZyo970vw4bBIYJkUyb3Emgy0WMGnhzGx7Dr2DunX/pub?gid=0&single=true&output=csv';
 

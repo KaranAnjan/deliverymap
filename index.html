@@ -21,87 +21,243 @@
   <script src="https://cdn.jsdelivr.net/npm/@yaireo/tagify"></script>
 
   <style>
-    html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
-    #map { height: 100%; width: 100%; position: absolute; top: 180px; }
-    header {
-      position: fixed;
-      top: 0;
-      width: 100%;
-      background-color: #00A651;
-      color: white;
-      padding: 10px;
-      text-align: center;
-      z-index: 1000;
+
+    
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: Arial, sans-serif;
+  }
+
+  #map, #listView {
+    height: calc(100% - 280px);
+    width: 100%;
+    position: absolute;
+    top: 280px;
+    display: none;
+  }
+
+  #listView {
+    padding: 10px;
+    overflow-y: auto;
+    background: white;
+  }
+
+  header {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    background-color: #00A651;
+    color: white;
+    padding: 10px 0;
+    text-align: center;
+    z-index: 1000;
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 20px;
+  }
+
+  .search-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 5px;
+    z-index: 1001;
+  }
+
+  .search-container input,
+  .search-container select,
+  .search-container button {
+    margin: 5px;
+    padding: 8px;
+    font-size: 14px;
+    width: 90%;
+    max-width: 300px;
+    border-radius: 5px;
+    border: none;
+    box-sizing: border-box;
+    height: 38px;
+  }
+
+  .tab-reset-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 5px;
+    flex-wrap: nowrap;
+  }
+
+  .tab-buttons {
+    display: flex;
+  }
+
+  .tab-buttons button,
+  .reset-button {
+    background: white;
+    border: none;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 5px;
+    height: 38px;
+    white-space: nowrap;
+  }
+
+  .tab-buttons button.active {
+    background: #007bff;
+    color: white;
+  }
+
+  input:focus, select:focus, button:focus {
+    outline: none;
+    box-shadow: 0 0 2px 2px rgba(0, 166, 81, 0.5);
+  }
+
+  .tagify {
+    background-color: white;
+    border: 1px solid #ccc;
+  }
+
+  .tagify__input::before {
+    content: attr(data-placeholder);
+    color: #aaa;
+  }
+
+  .tagify__input {
+    color: black;
+  }
+
+  .tagify__dropdown {
+    color: black;
+  }
+
+  .leaflet-bottom.leaflet-right {
+    margin-bottom: 60px !important;
+  }
+
+  .shop-item {
+    border-bottom: 1px solid #ccc;
+    padding: 12px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+  }
+
+  .shop-name {
+    font-weight: bold;
+    padding-bottom: 2px;
+  }
+
+  .shop-code {
+    font-size: 12px;
+    color: gray;
+  }
+
+  .no-data {
+    text-align: center;
+    padding: 80px 20px 20px 20px;
+    font-size: 16px;
+    color: #555;
+  }
+
+  @media (max-width: 600px) {
+    .tab-reset-row {
+      flex-direction: row;
+      flex-wrap: nowrap;
     }
-    header h1 { margin: 0; font-size: 20px; }
-    .search-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-top: 5px;
-      z-index: 1001;
+
+    .tab-buttons button,
+    .reset-button {
+      font-size: 13px;
+      padding: 8px 10px;
     }
-    .search-container input, .search-container select, .search-container button {
-      margin: 5px;
-      padding: 8px;
-      font-size: 14px;
-      width: 90%;
-      max-width: 300px;
-      border-radius: 5px;
-      border: none;
-      box-sizing: border-box;
+
+    .search-container input,
+    .search-container select,
+    .search-container button {
+      width: 95%;
     }
-    input:focus, select:focus, button:focus {
-      outline: none;
-      box-shadow: 0 0 2px 2px rgba(0, 166, 81, 0.5);
-    }
-    .tagify {
-      background-color: white;
-      border: 1px solid #ccc;
-    }
-    .tagify__input::before {
-      content: attr(data-placeholder);
-      color: #aaa;
-    }
-    .tagify__input {
-      color: black;
-    }
-    .tagify__dropdown {
-      color: black;
-    }
-    .leaflet-bottom.leaflet-right { margin-bottom: 60px !important; }
+  }
+
   </style>
 </head>
 <body>
   <header>
     <h1>Delivery Map</h1>
-    <div class="search-container">
-      <input id="shopSearch" placeholder="🔍 Search multiple shops" autofocus data-placeholder="🔍 Search multiple shops">
-      <select id="routeFilter">
-        <option value="">📍 All Routes</option>
-      </select>
-      <select id="salesFilter">
-        <option value="">👤 All Salespersons</option>
-      </select>
-      <button onclick="resetFilters()">Reset Filters</button>
-      <button onclick="openMultiStopRoute()">🧭 Multi-Stop Navigate</button>
+    
+  <div class="search-container">
+  <input id="shopSearch" placeholder="🔍 Search multiple shops" autofocus data-placeholder="🔍 Search multiple shops">
+
+  <select id="routeFilter">
+    <option value="">📍 All Routes</option>
+  </select>
+
+  <select id="salesFilter">
+    <option value="">👤 All Salespersons</option>
+  </select>
+
+  <!-- ✅ Paste this right here -->
+  <div class="tab-reset-row">
+    <div class="tab-buttons">
+      <button id="listTab" class="active" onclick="switchTab('list')">List View</button>
+      <button id="mapTab" onclick="switchTab('map')">Map View</button>
     </div>
+    <button class="reset-button" onclick="resetFilters()">Reset Filters</button>
+  </div>
+
+  <button onclick="openMultiStopRoute()">🧭 Multi-Stop Navigate</button>
+</div>
+
   </header>
   <div id="map"></div>
+  <div id="listView"><div class="no-data">Please select a route or enter a shop name</div></div>
+
 
   <script>
-    const map = L.map('map', { zoomControl: false }).setView([22.5726, 88.3639], 10);
+    const map = L.map('map', { zoomControl: false });
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     const routeFilter = document.getElementById("routeFilter");
     const salesFilter = document.getElementById("salesFilter");
     const shopSearch = document.getElementById("shopSearch");
+    const listView = document.getElementById("listView");
 
     let allMarkers = [];
     let allData = [];
     let shopTagify;
     let shopNameToMarkerMap = new Map();
+
+    function switchTab(tab) {
+      document.getElementById("map").style.display = tab === 'map' ? 'block' : 'none';
+      document.getElementById("listView").style.display = tab === 'list' ? 'block' : 'none';
+      document.getElementById("mapTab").classList.toggle('active', tab === 'map');
+      document.getElementById("listTab").classList.toggle('active', tab === 'list');
+    }
+
+    function renderList(filteredData) {
+      if (filteredData.length === 0) {
+        listView.innerHTML = '<div class="no-data">Please select a route or enter a shop name</div>';
+        return;
+      }
+      listView.innerHTML = '';
+      filteredData.forEach(row => {
+        const lat = row["Latitude"], lng = row["Longitude"];
+        const shop = row["Shop Name"] || '', code = row["Shop Code"] || '';
+        const item = document.createElement("div");
+        item.className = "shop-item";
+        item.innerHTML = `<div><div class="shop-name">${shop}</div><div class="shop-code">${code}</div></div>
+                          <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank">
+                          <img src="https://maps.google.com/mapfiles/ms/icons/blue-dot.png" width="20"></a>`;
+        listView.appendChild(item);
+      });
+    }
 
     function showShops(data) {
       allData = data;
@@ -120,13 +276,9 @@
 
         const fullName = `${shopName} (${shopCode})`;
         const marker = L.marker([lat, lng]);
-        marker.bindPopup(`<b>${shopName}</b><br>Code: ${shopCode}<br>Route: ${route}<br>Salesperson: ${sales}<br>
-        <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank">🧭 Navigate</a>`);
-
         marker.route = route;
         marker.sales = sales;
         marker.shop = fullName;
-        // do not add marker to map yet
         allMarkers.push(marker);
 
         shopList.push(fullName);
@@ -156,7 +308,7 @@
           salesFilter.appendChild(opt);
         });
 
-        applyFilters(true);
+        applyFilters();
       });
 
       shopTagify = new Tagify(shopSearch, {
@@ -178,19 +330,25 @@
         allMarkers.forEach(marker => map.removeLayer(marker));
 
         if (selectedShops.length === 0) {
+          renderList([]);
           return;
         }
 
+        const matchedData = [];
         selectedShops.forEach(name => {
           const fullEntry = shopList.find(e => e.startsWith(name));
           const matchedMarkers = shopNameToMarkerMap.get(fullEntry);
-          if (matchedMarkers) {
+          const matchedRow = allData.find(row => `${row["Shop Name"]} (${row["Shop Code"]})` === fullEntry);
+          if (matchedMarkers && matchedRow) {
             matchedMarkers.forEach(marker => {
               marker.addTo(map);
               visibleMarkers.push(marker);
             });
+            matchedData.push(matchedRow);
           }
         });
+
+        renderList(matchedData);
 
         if (visibleMarkers.length > 0) {
           const bounds = L.latLngBounds(visibleMarkers.map(m => m.getLatLng()));
@@ -199,22 +357,33 @@
       });
     }
 
-    function applyFilters(shouldZoom = false) {
+    function applyFilters() {
       const route = routeFilter.value.trim();
       const sales = salesFilter.value.trim();
-      let visibleMarkers = [];
 
-      allMarkers.forEach(marker => {
-        const show = (!route || marker.route === route) && (!sales || marker.sales === sales);
-        if (show) {
-          marker.addTo(map);
-          visibleMarkers.push(marker);
-        } else {
-          map.removeLayer(marker);
+      const filteredData = allData.filter(row => {
+        const matchRoute = !route || row["Route ID"] === route;
+        const matchSales = !sales || row["Sales Person"] === sales;
+        return matchRoute && matchSales;
+      });
+
+      renderList(filteredData);
+
+      allMarkers.forEach(marker => map.removeLayer(marker));
+      const visibleMarkers = [];
+
+      filteredData.forEach(row => {
+        const fullName = `${row["Shop Name"]} (${row["Shop Code"]})`;
+        const matchedMarkers = shopNameToMarkerMap.get(fullName);
+        if (matchedMarkers) {
+          matchedMarkers.forEach(marker => {
+            marker.addTo(map);
+            visibleMarkers.push(marker);
+          });
         }
       });
 
-      if (shouldZoom && visibleMarkers.length > 0) {
+      if (visibleMarkers.length > 0) {
         const bounds = L.latLngBounds(visibleMarkers.map(m => m.getLatLng()));
         map.fitBounds(bounds, { padding: [30, 30] });
       }
@@ -225,6 +394,7 @@
       salesFilter.innerHTML = '<option value="">👤 All Salespersons</option>';
       if (shopTagify) shopTagify.removeAllTags();
       allMarkers.forEach(marker => map.removeLayer(marker));
+      renderList([]);
       map.setView([22.5726, 88.3639], 10);
     }
 
@@ -243,7 +413,7 @@
       window.open(url, '_blank');
     }
 
-    salesFilter.addEventListener("change", () => applyFilters(true));
+    salesFilter.addEventListener("change", applyFilters);
 
     const publicCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQeQNGO8MaX3SJmuO3vS5GsxzOvFysgW6N-wKGNZyo970vw4bBIYJkUyb3Emgy0WMGnhzGx7Dr2DunX/pub?gid=0&single=true&output=csv';
 
@@ -252,6 +422,7 @@
       header: true,
       complete: function(results) {
         showShops(results.data);
+        switchTab('list');
       }
     });
   </script>

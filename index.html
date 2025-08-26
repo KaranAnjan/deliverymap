@@ -437,7 +437,7 @@
 
     salesFilter.addEventListener("change", applyFilters);
 
-    const publicCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQeQNGO8MaX3SJmuO3vS5GsxzOvFysgW6N-wKGNZyo970vw4bBIYJkUyb3Emgy0WMGnhzGx7Dr2DunX/pub?gid=0&single=true&output=csv';
+    const publicCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQeQNGO8MaX3SJmuO3vS5GsxzOvFysgW6N-wKGNZyo970vw4bBIYJkUyb3Emgy0WMGnhzGx7Dr2DunX/pub?output=csv&gid=0';
 
     Papa.parse(publicCSV, {
       download: true,
@@ -450,4 +450,5 @@
   </script>
 </body>
 </html>
+
 
